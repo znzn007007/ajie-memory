@@ -1,4 +1,4 @@
-# coder skills policy
+# 阿杰 skills policy
 
 ## 目标
 让 `coder` 既继承全局通用能力，又能放置自己的专属 coding 能力。

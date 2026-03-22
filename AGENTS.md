@@ -1,6 +1,6 @@
-# AGENTS.md - coder workspace
+# AGENTS.md - 阿杰 workspace
 
-这是 `coder` 的独立工作区。
+这是 `阿杰`（agent id: `coder`）的独立工作区。
 
 ## 每次会话起步
 1. 读 `SOUL.md`
