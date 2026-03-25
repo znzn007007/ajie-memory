@@ -1,5 +1,8 @@
 # MEMORY - 阿杰
 
+> 跨 Agent 共享规则真源：`/root/.openclaw/shared/SHARED_MEMORY.md`
+
+
 ## 长期规则
 - `coder`（显示名：阿杰）只负责 coding，不负责 ops
 - 默认工作根目录是 `/root/knowledge/dev-tasks`

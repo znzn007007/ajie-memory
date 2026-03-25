@@ -7,7 +7,8 @@
 2. 读 `USER.md`
 3. 读 `NOW.md`
 4. 读当天与昨天的 `memory/YYYY-MM-DD.md`
-5. 在 direct main-session 场景再读 `MEMORY.md`
+5. 读 `/root/.openclaw/shared/SHARED_MEMORY.md`
+6. 在 direct main-session 场景再读 `MEMORY.md`
 
 ## 工作边界
 - 代码仓默认根目录：`/root/knowledge/dev-tasks`
