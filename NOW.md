@@ -1,59 +1,64 @@
 # NOW.md — 阿杰 当前工作态
 
 ## 当前优先级（进行中）
-- 已完成 `coder` agent phase-1 基础工作区搭建
-- 已配置 HEARTBEAT.md 监控机制（30 分钟巡检，静默模式）
-- 已固定代码仓根目录：`/root/knowledge/dev-tasks`
-- Telegram 入口通过主实例 agents.list 接入
+- CPA Codex quota monitor 已在 sub2api-prod 部署完成并挂 systemd timer 持续运行
+- 当前阈值下监控链路正常，但未命中告警条件
+- sing-box 已部署到 sub2api-prod 并配置真实 VLESS/Reality 节点
+- CPA 单账号灰度已挂上：codex-everettehagenesga@outlook.com-plus.json 走 socks5://127.0.0.1:1080
+- 代理链已验证：sing-box 出口 IP 为 107.150.100.225
+- 待补充：真实 Codex 业务请求闭环验证（带 API key 的联调）
 
-## 2026-04-03 当天进展
-- [08:40 UTC~09:04 UTC] 在 GCP sub2api-prod 上成功部署 CLIProxyAPI（CPA）：
+## 2026-04-07 当天进展
+- [13:10 UTC] 完成 CPA Codex quota monitor 远端部署与定时化：
+  - 代码目录：/home/znzn007007/cpa-codex-quota-monitor
+  - 配置文件：/home/znzn007007/cpa-codex-quota-monitor/config.json（真实敏感值仅保留远端本地）
+  - 服务：/etc/systemd/system/cpa-codex-quota-monitor.service
+  - 定时：/etc/systemd/system/cpa-codex-quota-monitor.timer
+  - 运行策略：OnBootSec=2min, OnUnitActiveSec=10min
+  - 验证：手动触发 service 成功，最新聚合 total=32 / usable=12 / avg5=58.17 / avg7=63.5
+  - 飞书链路：真实 webhook secret 发送测试成功
+- [15:32 UTC] 在 GCP sub2api-prod 上成功部署 sing-box 代理框架：
+  - 二进制：/opt/sing-box/sing-box (v1.13.6)
+  - 配置：/opt/sing-box/config.json（初始 outbound: direct）
+  - 服务：/etc/systemd/system/sing-box.service
+  - 本机监听：socks5(127.0.0.1:1080) / http(127.0.0.1:7890)
+  - 验证：curl 通过 socks5/http 均可访问外网，出口 IP 为 104.196.245.182（直连）
+- [15:46 UTC] sing-box 配置真实 VLESS/Reality 节点并重启：
+  - 节点信息：vless://09388f5c-559f-4b57-b408-7b619987c59c@107.150.100.225:443...
+  - 出口验证：curl --socks5 127.0.0.1:1080 返回 IP 为 107.150.100.225
+  - sing-box 日志显示 outbound/vless[node-233boy-reality] 正常工作
+- [15:46 UTC] CPA 单账号灰度配置：
+  - 目标 auth：/opt/cliproxy/pgstore/auths/codex-everettehagenesga@outlook.com-plus.json
+  - 已添加字段：proxy_url: "socks5://127.0.0.1:1080"
+  - CPA 服务已重启：cliproxyapi.service active (running)
+  - CPA 已加载 32 条 auth，灰度账号已指定走本地代理
+- [15:57 UTC] 灰度配置验证：
+  - 目标 auth 文件已确认包含 proxy_url
+  - sing-box 出口已切换到代理节点
+  - CPA 服务状态正常
+  - 说明：灰度接入本身已生效，缺一次真实 Codex 业务请求闭环验证
+
+## 2026-04-03~2026-04-06 历史进展（参考）
+- 2026-04-03 11:55 UTC：完成 GCP sub2api-prod 上的 CLIProxyAPI（CPA）部署：
   - 实例：sub2api-prod (zone: us-west1-b, project: stalwart-elixir-490811-q6)
   - 部署形态：二进制 + systemd（服务：cliproxyapi.service）
   - PostgreSQL：复用现有实例，新建独立 schema cliproxy
   - 配置文件：/opt/cliproxy/.env、/opt/cliproxy/config.yaml
-  - API 密钥：已生成并通过 curl /v1/models 验证（200 OK）
-  - 管理密钥：已生成并写入 config_store
-  - 远程管理：已启用（allow-remote: true）
-  - 官方 WebUI：本地验证 /management.html 正常（200 OK）
-  - Cloudflare Tunnel：由用户自行配置（指向 http://127.0.0.1:8317）
-- [10:47 UTC] 完成 sub2api 首 Token 高延迟事故源码分析与原因报告（via 子代理深查）：
-  - 根因：WSv2 链路 + previous_response_id 恢复 + store=false strict 模式导致的首 Token 叠高
-  - 源码证据链路：handler → scheduler → Forward → WSv2 acquire/dial/retry
-  - 默认配置：responses_websockets_v2=true、store_disabled_conn_mode=strict、TTFT 权重=0.5
+  - 管理密钥：已生成并通过 Management API 验证
+  - Codex auth：已迁移 10 条 OAuth 记录到 cliproxy.auth_store
+- 2026-04-03 10:47 UTC：完成 sub2api 首 Token 高延迟事故源码分析与原因报告
+  - 根因：WSv2 链路 + previous_response_id 恢复 + store=false strict 模式导致首 Token 叠高
   - 修复建议：改 store_disabled_conn_mode=adaptive、提高 TTFT 权重、缩短 sticky TTL
-- [07:50 UTC] 完成 sub2api 事故修复方案（纯配置级）：提供 4 套配置方案（保守/激进/局部），按优先级排序：
-  - 方案 1（推荐）：最小配置改法 - store_disabled_conn_mode: adaptive + sticky_ttl: 600 + ttft: 1.2
-  - 方案 2：保留 WSv2 偏性能优化 - prewarm_generate_enabled: true + min_idle: 8 + max_idle: 16
-  - 方案 3：临时回退 HTTP 做对照实验 - force_http: true
-  - 方案 4：按账号分层配置 - 对慢账号单独 force_http 或关闭 WSv2
-- [10:48 UTC] Heartbeat：更新 NOW.md 新鲜度、检查 workspace 日志、记录 git 工作区状态
-- [10:10 UTC] Heartbeat：NOW.md 新鲜度更新（记录 CLIProxyAPI 部署进展），git 工作区存在未提交改动（已记录，不主动发消息）
-- [11:10 UTC] Codex auth 迁移完成：
-  - 从 sub2api.public.accounts 迁移 Codex OAuth 认证到 CPA cliproxy.auth_store
-  - 成功迁移 10 条 Codex auth 记录（自动去重，每个 email 保留最新一条）
-  - CPA 服务已重启，模型列表验证通过（/v1/models 返回 13 个模型）
-  - 迁移格式：按 CPA CodexTokenStorage 源码结构组装（id_token、access_token、refresh_token、email、type=codex、expired）
-  - 目标文件名：codex-<email>.json
-- [12:10 UTC~21:05 UTC] 确认 sub2api-prod 上可用 Docker Compose 环境（方案 B 环境调研）：
-  - 核实远端环境：Docker / docker-compose 可用，3000 端口空闲
-  - 核实宿主机资源：PostgreSQL (5432) 和 Redis (6379) 已在运行
-  - 核实仓库架构：支持 SQLite / MySQL / PostgreSQL，默认 compose 为 new-api+postgres+redis 三件套
-  - 输出部署草案：复用宿主机 PG/Redis，只起 new-api 容器，提供 .env 模板和 compose 配置
-  - 输出内容：提供 docker-compose.yml 配置方案（服务定义、卷挂载、网络隔离）、提供 .env 模板（包含数据库连接、服务配置）
-
-## 2026-03-30~2026-04-01 历史进展（参考）
-- 2026-03-30 14:49 UTC：完成 GCP 机器 sub2api 性能排查（via gcloud ssh）：机器资源宽裕、服务运行稳定、延迟来自上游/代理链路而非本地瓶颈，建议先排查账号质量/上游路由后再考虑扩容
-- 2026-03-31 14:49 UTC：完成 GCP sub2api 机器性能与错误排查（14:49 UTC）：确认慢请求主要原因在上游链路与无效账号 failover，而非机器资源或本地前置逻辑；建议优先清理坏账号、优化账号选择策略
-- 2026-04-01 16:30 UTC：完成 instance-20260320-121921 的 PostgreSQL 安装配置（16:30 UTC）
+  - 提供 4 套配置方案（保守/激进/局部）
 
 ## 当前阻塞
 - 无硬阻塞
 
 ## 下一步
-- 接收 `main` 派发的新 coding 任务
-- 遵循破坏性操作先确认原则
+- 观察 quota monitor 定时运行是否稳定，必要时再调阈值/日报策略
+- 监控灰度账号表现：对比代理组 vs 直连组的 TTFT、错误率、超时率
+- 需要时补充真实 Codex 请求闭环验证（带 API key 联调）
 - 运维/部署类问题优先交由 `doctor`
 
 ---
-*最后更新：2026-04-03 14:20 UTC*
+*最后更新：2026-04-07 13:11 UTC*
